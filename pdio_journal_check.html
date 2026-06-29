@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDIO Journal Check — Namicoh Suria</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red: #D11F2F;
+    --red-light: #FAEEE9;
+    --red-dark: #A33D21;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --green-mid: #C0DD97;
+    --green-dark: #27500A;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --gray-50: #F5F5F3;
+    --gray-100: #E8E8E5;
+    --gray-300: #B4B2A9;
+    --gray-500: #5F5E5A;
+    --gray-700: #2C2C2A;
+    --border: rgba(0,0,0,0.12);
+    --border-mid: rgba(0,0,0,0.2);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  body { font-family: var(--font); background: var(--gray-50); color: var(--gray-700); min-height: 100vh; }
+
+  /* ── NAV ── */
+  .nav {
+    background: var(--red); padding: 0;
+    display: flex; align-items: stretch;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.15);
+  }
+  .nav-brand { padding: 12px 16px; border-right: 1px solid rgba(255,255,255,0.15); flex-shrink: 0; }
+  .nav-brand .company { font-size: 10px; color: rgba(255,255,255,0.7); letter-spacing: 0.06em; text-transform: uppercase; }
+  .nav-brand .appname { font-size: 15px; font-weight: 600; color: #fff; }
+  .nav-tabs { display: flex; align-items: stretch; padding: 0 8px; gap: 2px; }
+  .nav-tab {
+    padding: 0 16px; font-size: 13px; font-weight: 500;
+    color: rgba(255,255,255,0.7); background: none; border: none; cursor: pointer;
+    border-bottom: 3px solid transparent; transition: color 0.15s, border-color 0.15s;
+    display: flex; align-items: center; gap: 6px; font-family: var(--font);
+  }
+  .nav-tab:hover { color: #fff; }
+  .nav-tab.active { color: #fff; border-bottom-color: #fff; }
+  .nav-spacer { flex: 1; }
+  .nav-time { padding: 0 16px; display: flex; align-items: center; font-size: 12px; color: rgba(255,255,255,0.6); font-family: var(--mono); }
+
+  /* ── SCREENS ── */
+  .screen { display: none; max-width: 640px; margin: 0 auto; padding: 20px 16px; }
+  .screen.active { display: block; }
+
+  /* ── CARD ── */
+  .card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .card-body { padding: 16px; }
+  .card + .card { margin-top: 12px; }
+
+  /* ── SCANNER INPUT ZONE ── */
+  .scanner-zone {
+    background: #fff; border: 2px solid var(--border-mid);
+    border-radius: var(--radius-md); padding: 28px 24px;
+    text-align: center; transition: border-color 0.2s;
+  }
+  .scanner-zone.focused { border-color: var(--red); box-shadow: 0 0 0 4px rgba(209,31,47,0.1); }
+  .scanner-zone .sz-icon { font-size: 48px; margin-bottom: 10px; }
+  .scanner-zone h2 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+  .scanner-zone p { font-size: 13px; color: var(--gray-500); margin-bottom: 16px; }
+
+  .scanner-input-wrap { position: relative; }
+  .scanner-input {
+    width: 100%; padding: 13px 44px 13px 14px;
+    border-radius: var(--radius-sm); border: 1.5px solid var(--border-mid);
+    font-size: 15px; font-family: var(--mono); outline: none; text-align: center;
+    letter-spacing: 0.04em; background: var(--gray-50); color: var(--gray-700);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .scanner-input:focus { border-color: var(--red); background: #fff; box-shadow: 0 0 0 3px rgba(209,31,47,0.1); }
+  .scanner-input::placeholder { color: var(--gray-300); letter-spacing: 0; font-family: var(--font); font-size: 14px; }
+  .scanner-input-clear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--gray-300);
+    font-size: 16px; padding: 4px; display: none; font-family: var(--font);
+  }
+  .scanner-input-clear.visible { display: block; }
+
+  .scan-status {
+    margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+    font-size: 13px; display: flex; align-items: center; gap: 8px;
+    background: var(--gray-50); color: var(--gray-500);
+  }
+  .scan-status.ready { background: #EAF3DE; color: var(--green); }
+  .scan-status.scanning { background: #EEF4FF; color: #185FA5; }
+  .scan-status.error { background: #FCEBEB; color: #A32D2D; }
+
+  .manual-submit-row { display: flex; gap: 8px; margin-top: 10px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 11px 18px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500; border: none; cursor: pointer;
+    font-family: var(--font); transition: opacity 0.15s, transform 0.1s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-red:hover { opacity: 0.9; }
+  .btn-outline { background: #fff; color: var(--gray-700); border: 0.5px solid var(--border-mid); }
+  .btn-outline:hover { background: var(--gray-50); }
+  .btn-full { width: 100%; justify-content: center; padding: 13px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* ── PDIO INFO CARD ── */
+  .pdio-badge {
+    display: inline-block; background: var(--red-light); color: var(--red-dark);
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+    letter-spacing: 0.04em; margin-bottom: 8px;
+  }
+  .pdio-number { font-size: 20px; font-weight: 700; margin-bottom: 8px; font-family: var(--mono); }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+  .meta-item label { font-size: 10px; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 1px; }
+  .meta-item span { font-size: 13px; font-weight: 500; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap { margin-bottom: 14px; }
+  .progress-track { height: 5px; background: var(--gray-100); border-radius: 99px; overflow: hidden; margin-bottom: 5px; }
+  .progress-fill { height: 100%; background: var(--red); border-radius: 99px; transition: width 0.3s ease; }
+  .progress-label { font-size: 12px; color: var(--gray-500); text-align: right; }
+
+  /* ── CHECKLIST ITEMS ── */
+  .check-item {
+    background: #fff; border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .check-item + .check-item { margin-top: 8px; }
+  .check-item.state-ok { background: var(--green-light); border-color: var(--green-mid); }
+  .check-item.state-nok { background: #FCEBEB; border-color: #F09595; }
+  .ci-name { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .ci-sub { font-size: 12px; color: var(--gray-500); }
+  .ci-btns { display: flex; gap: 6px; margin-top: 10px; }
+  .ci-btn {
+    flex: 1; padding: 7px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-mid); font-size: 13px; font-weight: 500;
+    cursor: pointer; background: var(--gray-50); color: var(--gray-500);
+    transition: all 0.15s; font-family: var(--font);
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .ci-btn.active-ok { background: var(--green); color: #fff; border-color: var(--green); }
+  .ci-btn.active-nok { background: #A32D2D; color: #fff; border-color: #A32D2D; }
+  .ci-remark { margin-top: 8px; }
+  .ci-remark textarea {
+    width: 100%; padding: 7px 10px; font-size: 12px;
+    border-radius: 6px; border: 0.5px solid var(--border-mid);
+    font-family: var(--font); resize: none; height: 50px;
+    background: #fff; color: var(--gray-700); outline: none;
+  }
+  .ci-remark textarea:focus { border-color: var(--red); }
+
+  /* ── CHECKER NAME ── */
+  .checker-input {
+    width: 100%; padding: 10px 12px; border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-mid); font-size: 14px;
+    font-family: var(--font); outline: none; margin-bottom: 12px;
+  }
+  .checker-input:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(209,31,47,0.1); }
+
+  /* ── CONFIRM SCREEN ── */
+  .confirm-status-bar {
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    font-size: 15px; font-weight: 600;
+  }
+  .confirm-status-bar.all-ok { background: var(--green-light); color: var(--green); border-bottom: 0.5px solid var(--green-mid); }
+  .confirm-status-bar.has-nok { background: var(--amber-light); color: var(--amber); border-bottom: 0.5px solid #FAC775; }
+
+  .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .sstat { background: var(--gray-50); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+  .sstat .snum { font-size: 24px; font-weight: 700; }
+  .sstat .slbl { font-size: 10px; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+  .sstat .snum.green { color: var(--green); }
+  .sstat .snum.red { color: #A32D2D; }
+
+  .result-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .result-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 8px 12px; border-radius: var(--radius-sm);
+    background: var(--gray-50); font-size: 13px;
+  }
+  .result-row .rname { flex: 1; font-weight: 500; }
+  .result-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; }
+  .badge-ok { background: var(--green-mid); color: var(--green-dark); }
+  .badge-nok { background: #F7C1C1; color: #791F1F; }
+  .remark-text { font-size: 11px; color: var(--gray-300); font-style: italic; }
+
+  .sheets-status {
+    padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+    background: var(--gray-50); color: var(--gray-500);
+  }
+  .sheets-status.saved { background: var(--green-light); color: var(--green); }
+  .sheets-status.error { background: #FCEBEB; color: #A32D2D; }
+
+  .action-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .action-row .btn { flex: 1; justify-content: center; }
+
+  /* ── ADMIN ── */
+  .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-bar label { font-size: 11px; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.05em; }
+  .filter-bar input[type=date] {
+    padding: 8px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid);
+    font-size: 13px; font-family: var(--font); outline: none; background: #fff; color: var(--gray-700);
+  }
+  .filter-bar input[type=date]:focus { border-color: var(--red); }
+  .ml-auto { margin-left: auto; }
+
+  .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .kpi { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .kpi .klbl { font-size: 11px; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .kpi .knum { font-size: 30px; font-weight: 700; line-height: 1; }
+  .kpi .ksub { font-size: 11px; color: var(--gray-300); margin-top: 4px; }
+
+  .chart-card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 14px; }
+  .chart-card .clbl { font-size: 11px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+
+  .section-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-row h3 { font-size: 11px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.06em; }
+  .search-input {
+    padding: 7px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid);
+    font-size: 13px; font-family: var(--font); outline: none; width: 190px;
+    background: #fff; color: var(--gray-700);
+  }
+  .search-input:focus { border-color: var(--red); }
+
+  .tbl-wrap { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+  th {
+    text-align: left; font-size: 10px; font-weight: 600; color: var(--gray-300);
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 9px 12px;
+    border-bottom: 0.5px solid var(--border); background: var(--gray-50);
+  }
+  td { padding: 10px 12px; border-bottom: 0.5px solid var(--border); color: var(--gray-700); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-50); }
+  .td-mono { font-family: var(--mono); font-size: 12px; }
+  .td-muted { color: var(--gray-500); }
+
+  .pager-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-top: 0.5px solid var(--border);
+    font-size: 12px; color: var(--gray-300);
+  }
+  .pager-btns { display: flex; gap: 6px; }
+  .pager-btns button {
+    padding: 4px 12px; border: 0.5px solid var(--border-mid); border-radius: 6px;
+    font-size: 12px; background: #fff; color: var(--gray-700); cursor: pointer; font-family: var(--font);
+  }
+  .pager-btns button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .pager-btns button:not(:disabled):hover { background: var(--gray-50); }
+  .view-btn { font-size: 12px; color: var(--red); border: none; background: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-family: var(--font); }
+  .view-btn:hover { background: var(--red-light); }
+
+  /* ── DETAIL MODAL ── */
+  .modal-overlay {
+    background: rgba(0,0,0,0.4); border-radius: var(--radius-md);
+    padding: 16px; display: flex; align-items: flex-start; justify-content: center;
+    margin-bottom: 10px;
+  }
+  .modal-card { background: #fff; border-radius: var(--radius-md); width: 100%; overflow: hidden; border: 0.5px solid var(--border); }
+  .modal-hdr { background: var(--red); padding: 13px 16px; display: flex; align-items: center; justify-content: space-between; }
+  .modal-hdr h3 { color: #fff; font-size: 14px; font-weight: 600; font-family: var(--mono); }
+  .modal-close { background: rgba(255,255,255,0.2); border: none; color: #fff; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+  .modal-close:hover { background: rgba(255,255,255,0.3); }
+  .modal-meta { padding: 12px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-bottom: 0.5px solid var(--border); }
+  .mmi label { font-size: 10px; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 2px; }
+  .mmi span { font-size: 13px; font-weight: 500; }
+  .modal-items { padding: 12px 16px; }
+  .mi-lbl { font-size: 10px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .mi-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 7px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; }
+  .mi-row:last-child { border-bottom: none; }
+  .mi-name { flex: 1; }
+  .mi-right { text-align: right; }
+  .mi-remark { font-size: 11px; color: var(--gray-300); font-style: italic; margin-top: 2px; }
+
+  /* ── SETTINGS ── */
+  .settings-section { margin-bottom: 20px; }
+  .settings-section h3 { font-size: 12px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .setting-row { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; }
+  .setting-row label { font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px; }
+  .setting-row small { font-size: 12px; color: var(--gray-500); display: block; margin-bottom: 10px; line-height: 1.5; }
+  .setting-row input { width: 100%; padding: 9px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-mid); font-size: 13px; font-family: var(--font); outline: none; margin-bottom: 8px; }
+  .setting-row input:focus { border-color: var(--red); }
+  pre { background: var(--gray-50); border: 0.5px solid var(--border); border-radius: 6px; padding: 12px; font-size: 11px; font-family: var(--mono); overflow-x: auto; white-space: pre-wrap; color: var(--gray-700); margin-bottom: 8px; }
+
+  /* ── SECTION LABEL ── */
+  .sec-label { font-size: 11px; font-weight: 600; color: var(--gray-300); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+
+  /* ── SPINNER ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--gray-700); color: #fff;
+    padding: 10px 20px; border-radius: 99px;
+    font-size: 13px; font-family: var(--font);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">
+    <div class="company">Namicoh Suria Sdn Bhd</div>
+    <div class="appname">PDIO Journal Check</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="gotoTab('scan')" id="tab-scan">&#9638; Scan</button>
+    <button class="nav-tab" onclick="gotoTab('admin')" id="tab-admin">&#9636; Dashboard</button>
+    <button class="nav-tab" onclick="gotoTab('settings')" id="tab-settings">&#9881; Settings</button>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-time" id="nav-clock"></div>
+</nav>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  SCAN TAB                                 -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen active" id="screen-scan">
+
+  <!-- Step 1: Scanner input -->
+  <div id="step-scan">
+    <div class="scanner-zone" id="scanner-zone">
+      <div class="sz-icon">&#9641;</div>
+      <h2>Ready to scan</h2>
+      <p>Point the barcode scanner at the QR code on the physical PDIO document</p>
+
+      <div class="scanner-input-wrap">
+        <input
+          id="scanner-input"
+          class="scanner-input"
+          type="text"
+          placeholder="Scan QR code or type PDIO number…"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          autofocus
+        />
+        <button class="scanner-input-clear" id="clear-btn" onclick="clearScannerInput()" title="Clear">&#10005;</button>
+      </div>
+
+      <div class="scan-status ready" id="scan-status">
+        <span>&#9679;</span> Scanner ready — click the field and scan
+      </div>
+    </div>
+
+    <div class="manual-submit-row">
+      <button class="btn btn-red btn-full" onclick="submitScannerInput()">Load PDIO</button>
+    </div>
+    <p style="text-align:center; font-size:12px; color:var(--gray-300); margin-top:8px;">
+      Scanner auto-submits on scan &nbsp;·&nbsp; or press Enter after typing manually
+    </p>
+  </div>
+
+  <!-- Step 2: Checklist -->
+  <div id="step-checklist" style="display:none;">
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-body">
+        <div class="pdio-badge">PDIO</div>
+        <div class="pdio-number" id="cl-pdio-num">—</div>
+        <div class="meta-grid">
+          <div class="meta-item"><label>Company</label><span>Namicoh Suria Sdn Bhd</span></div>
+          <div class="meta-item"><label>Order type</label><span id="cl-order-type">—</span></div>
+          <div class="meta-item"><label>PDIO qty</label><span id="cl-qty">1 page</span></div>
+          <div class="meta-item"><label>Date</label><span id="cl-date">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="progress-label" id="prog-label">0 of 0 checked</div>
+    </div>
+
+    <div class="sec-label">Kanban item verification</div>
+    <div id="checklist-items"></div>
+
+    <div style="margin-top:16px;">
+      <div class="sec-label">Checked by</div>
+      <input id="checker-name" class="checker-input" type="text" placeholder="Enter your name" />
+    </div>
+
+    <div style="display:flex; gap:8px;">
+      <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="resetScan()">&#8592; Back</button>
+      <button class="btn btn-red" style="flex:2; justify-content:center;" id="review-btn" onclick="goToConfirm()" disabled>Review &amp; Confirm</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Confirm -->
+  <div id="step-confirm" style="display:none;">
+    <div class="card" style="margin-bottom:12px;">
+      <div class="confirm-status-bar all-ok" id="confirm-bar">
+        <span id="confirm-icon">&#10003;</span>
+        <span id="confirm-bar-text">All items verified OK</span>
+      </div>
+      <div class="card-body">
+        <div class="meta-grid" style="margin-bottom:12px;">
+          <div class="meta-item"><label>PDIO number</label><span id="cf-num">—</span></div>
+          <div class="meta-item"><label>Order type</label><span id="cf-type">—</span></div>
+          <div class="meta-item"><label>PDIO qty</label><span id="cf-qty">—</span></div>
+          <div class="meta-item"><label>Checked by</label><span id="cf-checker">—</span></div>
+          <div class="meta-item" style="grid-column:span 2;"><label>Date &amp; time</label><span id="cf-dt">—</span></div>
+        </div>
+
+        <div class="summary-stats">
+          <div class="sstat"><div class="snum" id="cf-total">0</div><div class="slbl">Total</div></div>
+          <div class="sstat"><div class="snum green" id="cf-ok">0</div><div class="slbl">OK</div></div>
+          <div class="sstat"><div class="snum red" id="cf-nok">0</div><div class="slbl">Not OK</div></div>
+        </div>
+
+        <div class="sec-label">Item results</div>
+        <div class="result-list" id="confirm-result-list"></div>
+
+        <div class="sheets-status" id="sheets-status" style="display:none;">
+          <span class="spin" id="sheets-icon">&#8635;</span>
+          <span id="sheets-text">Saving to Google Sheets…</span>
+        </div>
+
+        <div class="action-row">
+          <button class="btn btn-outline" onclick="goBackToChecklist()">&#8592; Back</button>
+          <button class="btn btn-red" style="flex:2; justify-content:center;" id="final-btn" onclick="finalSubmit()">Confirm &amp; Save</button>
+        </div>
+        <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="resetScan()">Scan new PDIO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  ADMIN DASHBOARD                          -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen" id="screen-admin">
+  <div class="filter-bar">
+    <label>Date</label>
+    <input type="date" id="adm-date" />
+    <button class="btn btn-red" style="padding:8px 14px; font-size:13px;" onclick="admApplyFilter()">Filter</button>
+    <button class="btn btn-outline ml-auto" style="padding:8px 12px; font-size:13px;" onclick="admExportCsv()">&#8659; Export CSV</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="klbl">Total PDIO sent</div>
+      <div class="knum" id="adm-total">0</div>
+      <div class="ksub" id="adm-date-label">—</div>
+    </div>
+    <div class="kpi">
+      <div class="klbl">Last scan</div>
+      <div class="knum" id="adm-last-time" style="font-size:22px;">—</div>
+      <div class="ksub" id="adm-last-pdio">—</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="clbl">PDIOs sent per hour</div>
+    <div style="position:relative; width:100%; height:160px;">
+      <canvas id="hourly-chart" role="img" aria-label="Bar chart showing PDIO count per hour of day">No data.</canvas>
+    </div>
+  </div>
+
+  <div class="section-row">
+    <h3>All records</h3>
+    <input class="search-input" id="adm-search" placeholder="Search PDIO number…" oninput="admRenderTable()" />
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:48%">PDIO number</th>
+          <th style="width:38%">Date &amp; time</th>
+          <th style="width:14%"></th>
+        </tr>
+      </thead>
+      <tbody id="adm-tbody"></tbody>
+    </table>
+    <div class="pager-row">
+      <span id="adm-pager-info">Showing 0–0 of 0</span>
+      <div class="pager-btns">
+        <button id="adm-prev" onclick="admChangePage(-1)" disabled>Prev</button>
+        <button id="adm-next" onclick="admChangePage(1)" disabled>Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="adm-detail" style="display:none;">
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-hdr">
+          <h3 id="md-pdio">—</h3>
+          <button class="modal-close" onclick="admCloseDetail()">&#10005;</button>
+        </div>
+        <div class="modal-meta">
+          <div class="mmi"><label>Order type</label><span id="md-type">—</span></div>
+          <div class="mmi"><label>PDIO qty</label><span id="md-qty">—</span></div>
+          <div class="mmi"><label>Checked by</label><span id="md-checker">—</span></div>
+          <div class="mmi"><label>Date &amp; time</label><span id="md-dt">—</span></div>
+        </div>
+        <div class="modal-items">
+          <div class="mi-lbl">Item verification results</div>
+          <div id="md-items"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ -->
+<!--  SETTINGS                                 -->
+<!-- ══════════════════════════════════════════ -->
+<div class="screen" id="screen-settings">
+  <div class="settings-section">
+    <h3>Google Sheets integration</h3>
+    <div class="setting-row">
+      <label>Apps Script Web App URL</label>
+      <small>Deploy your Google Apps Script as a Web App and paste the URL here. Each confirmed PDIO check will be saved automatically to your Google Sheet.</small>
+      <input id="gs-url-input" type="url" placeholder="https://script.google.com/macros/s/…/exec" />
+      <button class="btn btn-red" style="width:100%; justify-content:center;" onclick="saveGsUrl()">Save URL</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Google Apps Script code</h3>
+    <div class="setting-row">
+      <label>Paste this into your Apps Script editor</label>
+      <small>Go to script.google.com → New project → paste the code → Deploy as Web App (Execute as: Me, Who has access: Anyone). Copy the deployment URL and paste it above.</small>
+      <pre>function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['Timestamp','PDIO Number',
+      'Order Type','PDIO Qty','Checked By',
+      'Total Items','Item Details']);
+  }
+  sh.appendRow([
+    data.datetime,
+    data.pdioNumber,
+    data.orderType,
+    data.pdioQty,
+    data.checkedBy,
+    data.totalItems,
+    JSON.stringify(data.items)
+  ]);
+  return ContentService
+    .createTextResponse('OK')
+    .setMimeType(ContentService.MimeType.TEXT);
+}</pre>
+      <button class="btn btn-outline" style="width:100%; justify-content:center;" onclick="copyScript()">Copy script</button>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Scanner tips</h3>
+    <div class="setting-row">
+      <label>How the scanner input works</label>
+      <small>
+        Hardware barcode/QR scanners emulate a keyboard — they type the scanned value and send Enter automatically.<br><br>
+        • The scan field is auto-focused when the Scan tab opens.<br>
+        • After a scan, the PDIO loads immediately — no button press needed.<br>
+        • If the field loses focus (e.g. you clicked elsewhere), click the scan field or press Tab to refocus before scanning.<br>
+        • You can also type a PDIO number manually and press Enter or tap Load PDIO.
+      </small>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h3>Local data</h3>
+    <div class="setting-row">
+      <label>Clear all local records</label>
+      <small>Removes all records stored on this device. Records already saved to Google Sheets are not affected.</small>
+      <button class="btn btn-outline" style="width:100%; justify-content:center; color:#A32D2D; border-color:#F09595;" onclick="clearLocalData()">Clear local records</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── STATE ── */
+let currentPdio = null;
+let checkItems = [];
+let gsUrl = localStorage.getItem('pdio_gs_url') || '';
+let admLogs = [];
+let admFiltered = [];
+let admPage = 0;
+const ADM_PAGE = 10;
+let hourlyChartInst = null;
+
+/* Scanner debounce — scanners send chars very fast then Enter */
+let scanBuffer = '';
+let scanTimer = null;
+const SCAN_TIMEOUT = 80; /* ms between chars — scanners are faster than humans */
+
+const DEFAULT_ITEMS = [
+  { id: 1, name: 'Item quantity verified',   sub: 'Kanban count matches physical (boxes × pcs per box)' },
+  { id: 2, name: 'Physical condition OK',    sub: 'No damage, dents, contamination, or defects' },
+  { id: 3, name: 'Packaging intact',         sub: 'Box sealed, no open seams or tears' },
+  { id: 4, name: 'Label / tag correct',      sub: 'Part number, description, and supplier label match PDIO' },
+  { id: 5, name: 'PDIO document attached',   sub: 'Physical PDIO paper is inside or attached to delivery' },
+  { id: 6, name: 'Kanban card present',      sub: 'Supplier kanban card included in the delivery' },
+  { id: 7, name: 'Delivery address correct', sub: 'Perodua plant or line destination confirmed on label' },
+];
+
+/* ── CLOCK ── */
+function tickClock() {
+  const now = new Date();
+  document.getElementById('nav-clock').textContent =
+    now.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ── TOAST ── */
+function toast(msg, dur) {
+  dur = dur || 2500;
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, dur);
+}
+
+/* ── NAV ── */
+function gotoTab(tab) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('screen-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'scan') {
+    /* Re-focus scanner input when returning to scan tab */
+    setTimeout(function() {
+      var inp = document.getElementById('scanner-input');
+      if (inp) inp.focus();
+    }, 100);
+  }
+  if (tab === 'admin') loadAdmLogs();
+}
+
+/* ── SETTINGS ── */
+if (gsUrl) document.getElementById('gs-url-input').value = gsUrl;
+
+function saveGsUrl() {
+  gsUrl = document.getElementById('gs-url-input').value.trim();
+  localStorage.setItem('pdio_gs_url', gsUrl);
+  toast('Apps Script URL saved');
+}
+
+function copyScript() {
+  var code = document.querySelector('pre').textContent;
+  navigator.clipboard.writeText(code).then(function() { toast('Script copied to clipboard'); });
+}
+
+function clearLocalData() {
+  if (!confirm('Delete all local PDIO records? This cannot be undone.')) return;
+  localStorage.removeItem('pdio_logs');
+  toast('Local records cleared');
+}
+
+/* ══════════════════════════════════════════════ */
+/*  SCANNER INPUT LOGIC                          */
+/* ══════════════════════════════════════════════ */
+var scannerInput = document.getElementById('scanner-input');
+var scannerZone  = document.getElementById('scanner-zone');
+var clearBtn     = document.getElementById('clear-btn');
+var scanStatus   = document.getElementById('scan-status');
+
+/* Auto-focus on load */
+scannerInput.focus();
+
+/* Show/hide clear button as user types */
+scannerInput.addEventListener('input', function() {
+  clearBtn.className = 'scanner-input-clear' + (this.value ? ' visible' : '');
+});
+
+/* Visual focus state on the zone */
+scannerInput.addEventListener('focus', function() {
+  scannerZone.classList.add('focused');
+  scanStatus.className = 'scan-status scanning';
+  scanStatus.innerHTML = '<span>&#9679;</span> Waiting for scan…';
+});
+scannerInput.addEventListener('blur', function() {
+  scannerZone.classList.remove('focused');
+  scanStatus.className = 'scan-status ready';
+  scanStatus.innerHTML = '<span>&#9679;</span> Scanner ready — click the field and scan';
+});
+
+/*
+  Key-based scanner detection:
+  Hardware scanners fire keydown events very rapidly (< SCAN_TIMEOUT ms apart)
+  and finish with Enter. We let the native input populate naturally,
+  then on Enter we grab the value and process it.
+*/
+scannerInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitScannerInput();
+  }
+});
+
+function clearScannerInput() {
+  scannerInput.value = '';
+  clearBtn.className = 'scanner-input-clear';
+  scannerInput.focus();
+}
+
+function submitScannerInput() {
+  var val = scannerInput.value.trim();
+  if (!val) { toast('No PDIO scanned — please scan or type a PDIO number'); return; }
+  parsePdioQr(val);
+  clearScannerInput();
+}
+
+/* ── QR / PDIO PARSING ── */
+function parsePdioQr(text) {
+  /*
+    Supports two QR formats:
+    1. Multi-line:  "PDIO Number: PDIO-2024-00123\nOrder Type: Standard\nPDIO Quantity: 1 page"
+    2. Plain:       "PDIO-2024-00123"
+  */
+  var obj = {};
+  text.split('\n').forEach(function(l) {
+    var idx = l.indexOf(':');
+    if (idx > -1) {
+      var k = l.slice(0, idx).trim().toLowerCase().replace(/\s+/g, '_');
+      obj[k] = l.slice(idx + 1).trim();
+    }
+  });
+  loadPdio({
+    number:    obj.pdio_number || obj.pdio || text.trim(),
+    orderType: obj.order_type  || 'Standard',
+    qty:       obj.pdio_quantity || obj.qty || '1 page',
+  });
+}
+
+/* ── LOAD PDIO & BUILD CHECKLIST ── */
+function loadPdio(data) {
+  var today = new Date();
+  currentPdio = {
+    number:    data.number,
+    orderType: data.orderType,
+    qty:       data.qty,
+    date:      today.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
+  };
+  document.getElementById('cl-pdio-num').textContent   = currentPdio.number;
+  document.getElementById('cl-order-type').textContent = currentPdio.orderType;
+  document.getElementById('cl-qty').textContent        = currentPdio.qty;
+  document.getElementById('cl-date').textContent       = currentPdio.date;
+  buildChecklist();
+  showStep('checklist');
+  toast('PDIO loaded: ' + currentPdio.number);
+}
+
+function buildChecklist() {
+  checkItems = DEFAULT_ITEMS.map(function(i) { return Object.assign({}, i, { status: null, remark: '' }); });
+  var container = document.getElementById('checklist-items');
+  container.innerHTML = '';
+  checkItems.forEach(function(item) {
+    var d = document.createElement('div');
+    d.className = 'check-item';
+    d.id = 'ci-' + item.id;
+    d.innerHTML =
+      '<div class="ci-name">' + item.name + '</div>' +
+      '<div class="ci-sub">' + item.sub + '</div>' +
+      '<div class="ci-btns">' +
+        '<button class="ci-btn" id="ok-' + item.id + '" onclick="setStatus(' + item.id + ',\'ok\')">&#10003; OK</button>' +
+        '<button class="ci-btn" id="nok-' + item.id + '" onclick="setStatus(' + item.id + ',\'nok\')">&#10005; Not OK</button>' +
+      '</div>' +
+      '<div class="ci-remark" id="rem-' + item.id + '" style="display:none;">' +
+        '<textarea placeholder="Add remark…" oninput="setRemark(' + item.id + ', this.value)"></textarea>' +
+      '</div>';
+    container.appendChild(d);
+  });
+  updateProgress();
+}
+
+function setStatus(id, status) {
+  var item = checkItems.find(function(i) { return i.id === id; });
+  item.status = status;
+  document.getElementById('ci-' + id).className = 'check-item state-' + status;
+  document.getElementById('ok-' + id).className  = 'ci-btn' + (status === 'ok'  ? ' active-ok'  : '');
+  document.getElementById('nok-' + id).className = 'ci-btn' + (status === 'nok' ? ' active-nok' : '');
+  document.getElementById('rem-' + id).style.display = status === 'nok' ? 'block' : 'none';
+  updateProgress();
+}
+
+function setRemark(id, val) {
+  checkItems.find(function(i) { return i.id === id; }).remark = val;
+}
+
+function updateProgress() {
+  var done  = checkItems.filter(function(i) { return i.status !== null; }).length;
+  var total = checkItems.length;
+  var pct   = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('prog-label').textContent = done + ' of ' + total + ' checked';
+  document.getElementById('review-btn').disabled = done < total;
+}
+
+/* ── STEPS ── */
+function showStep(step) {
+  ['scan','checklist','confirm'].forEach(function(s) {
+    document.getElementById('step-' + s).style.display = s === step ? '' : 'none';
+  });
+}
+
+function resetScan() {
+  currentPdio = null;
+  checkItems  = [];
+  document.getElementById('checker-name').value = '';
+  document.getElementById('adm-detail').style.display = 'none';
+  showStep('scan');
+  setTimeout(function() {
+    var inp = document.getElementById('scanner-input');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function goBackToChecklist() { showStep('checklist'); }
+
+/* ── CONFIRM ── */
+function goToConfirm() {
+  if (!checkItems.every(function(i) { return i.status !== null; })) {
+    toast('Please verify all items first'); return;
+  }
+  var checker  = document.getElementById('checker-name').value.trim() || 'Not specified';
+  var okCount  = checkItems.filter(function(i) { return i.status === 'ok'; }).length;
+  var nokCount = checkItems.filter(function(i) { return i.status === 'nok'; }).length;
+  var now = new Date();
+
+  document.getElementById('cf-num').textContent     = currentPdio.number;
+  document.getElementById('cf-type').textContent    = currentPdio.orderType;
+  document.getElementById('cf-qty').textContent     = currentPdio.qty;
+  document.getElementById('cf-checker').textContent = checker;
+  document.getElementById('cf-dt').textContent      = now.toLocaleString('en-MY');
+  document.getElementById('cf-total').textContent   = checkItems.length;
+  document.getElementById('cf-ok').textContent      = okCount;
+  document.getElementById('cf-nok').textContent     = nokCount;
+
+  var bar = document.getElementById('confirm-bar');
+  bar.className = 'confirm-status-bar ' + (nokCount > 0 ? 'has-nok' : 'all-ok');
+  document.getElementById('confirm-icon').textContent    = nokCount > 0 ? '⚠' : '✓';
+  document.getElementById('confirm-bar-text').textContent = nokCount > 0
+    ? nokCount + ' item(s) need attention' : 'All items verified OK';
+
+  document.getElementById('confirm-result-list').innerHTML = checkItems.map(function(item) {
+    return '<div class="result-row">' +
+      '<span class="rname">' + item.name + '</span>' +
+      '<div class="result-badges">' +
+        '<span class="badge ' + (item.status === 'ok' ? 'badge-ok' : 'badge-nok') + '">' +
+          (item.status === 'ok' ? 'OK' : 'Not OK') + '</span>' +
+        (item.remark ? '<span class="remark-text">' + item.remark + '</span>' : '') +
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('sheets-status').style.display = 'none';
+  document.getElementById('final-btn').disabled    = false;
+  document.getElementById('final-btn').textContent = 'Confirm & Save';
+  showStep('confirm');
+}
+
+/* ── FINAL SUBMIT ── */
+function finalSubmit() {
+  var checker  = document.getElementById('checker-name').value.trim() || 'Not specified';
+  var now      = new Date();
+  var payload  = {
+    timestamp:    now.toISOString(),
+    datetime:     now.toLocaleString('en-MY'),
+    pdioNumber:   currentPdio.number,
+    company:      'Namicoh Suria Sdn Bhd',
+    orderType:    currentPdio.orderType,
+    pdioQty:      currentPdio.qty,
+    checkedBy:    checker,
+    totalItems:   checkItems.length,
+    okCount:      checkItems.filter(function(i) { return i.status === 'ok'; }).length,
+    nokCount:     checkItems.filter(function(i) { return i.status === 'nok'; }).length,
+    overallStatus: checkItems.every(function(i) { return i.status === 'ok'; }) ? 'PASS' : 'FAIL',
+    items: checkItems.map(function(i) {
+      return { name: i.name, status: i.status === 'ok' ? 'OK' : 'NOT OK', remark: i.remark };
+    })
+  };
+
+  var btn = document.getElementById('final-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  var ss = document.getElementById('sheets-status');
+  var si = document.getElementById('sheets-icon');
+  var st = document.getElementById('sheets-text');
+  ss.className = 'sheets-status'; ss.style.display = 'flex';
+  si.className = 'spin'; si.textContent = '⟳';
+  st.textContent = 'Saving to Google Sheets…';
+
+  /* Save locally */
+  var logs = JSON.parse(localStorage.getItem('pdio_logs') || '[]');
+  logs.unshift(payload);
+  localStorage.setItem('pdio_logs', JSON.stringify(logs.slice(0, 500)));
+
+  if (gsUrl) {
+    fetch(gsUrl, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function() {
+      ss.className = 'sheets-status saved';
+      si.className = ''; si.textContent = '✓';
+      st.textContent = 'Saved to Google Sheets';
+    }).catch(function() {
+      ss.className = 'sheets-status error';
+      si.className = ''; si.textContent = '!';
+      st.textContent = 'Could not reach Google Sheets — saved locally';
+    });
+  } else {
+    ss.className = 'sheets-status saved';
+    si.className = ''; si.textContent = '✓';
+    st.textContent = 'Saved locally (no Sheets URL configured)';
+  }
+
+  btn.textContent = 'Confirmed ✓';
+  toast('PDIO ' + payload.pdioNumber + ' saved');
+}
+
+/* ══════════════════════════════════════════════ */
+/*  ADMIN DASHBOARD                              */
+/* ══════════════════════════════════════════════ */
+function loadAdmLogs() {
+  var raw = localStorage.getItem('pdio_logs');
+  admLogs = raw ? JSON.parse(raw) : [];
+  if (admLogs.length === 0) admLogs = generateDemoData();
+  document.getElementById('adm-date').value = new Date().toISOString().slice(0, 10);
+  admApplyFilter();
+}
+
+function generateDemoData() {
+  var types    = ['Standard','Urgent','Scheduled'];
+  var checkers = ['Ahmad Fariz','Nurul Ain','Hafiz Rosli','Siti Norzila'];
+  var items    = DEFAULT_ITEMS.map(function(i) { return i.name; });
+  var records  = [];
+  var today    = new Date();
+  for (var i = 0; i < 10; i++) {
+    var d = new Date(today);
+    d.setHours(7 + Math.floor(Math.random() * 10), Math.floor(Math.random() * 60));
+    var nokIdx = Math.random() < 0.25 ? Math.floor(Math.random() * items.length) : -1;
+    records.push({
+      timestamp: d.toISOString(),
+      datetime:  d.toLocaleString('en-MY'),
+      pdioNumber: 'PDIO-' + String(2024000 + Math.floor(Math.random() * 900 + 100)),
+      company:   'Namicoh Suria Sdn Bhd',
+      orderType: types[Math.floor(Math.random() * types.length)],
+      pdioQty:   '1 page',
+      checkedBy: checkers[Math.floor(Math.random() * checkers.length)],
+      totalItems: items.length,
+      okCount:   nokIdx >= 0 ? items.length - 1 : items.length,
+      nokCount:  nokIdx >= 0 ? 1 : 0,
+      overallStatus: nokIdx >= 0 ? 'FAIL' : 'PASS',
+      items: items.map(function(name, idx) {
+        return { name: name, status: idx === nokIdx ? 'NOT OK' : 'OK', remark: idx === nokIdx ? 'Needs re-check' : '' };
+      })
+    });
+  }
+  return records.sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+}
+
+function admApplyFilter() {
+  var dv = document.getElementById('adm-date').value;
+  admFiltered = dv
+    ? admLogs.filter(function(r) { return r.timestamp && r.timestamp.startsWith(dv); })
+    : admLogs.slice();
+  admPage = 0;
+  admRenderKpi();
+  admRenderChart();
+  admRenderTable();
+}
+
+function admRenderKpi() {
+  var total = admFiltered.length;
+  var dv    = document.getElementById('adm-date').value;
+  document.getElementById('adm-total').textContent = total;
+  document.getElementById('adm-date-label').textContent = dv
+    ? new Date(dv + 'T00:00').toLocaleDateString('en-MY', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : 'All dates';
+  if (admFiltered.length > 0) {
+    var latest = admFiltered.reduce(function(a, b) { return new Date(a.timestamp) > new Date(b.timestamp) ? a : b; });
+    var t = new Date(latest.timestamp);
+    document.getElementById('adm-last-time').textContent = t.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('adm-last-pdio').textContent = latest.pdioNumber || '—';
+  } else {
+    document.getElementById('adm-last-time').textContent = '—';
+    document.getElementById('adm-last-pdio').textContent = 'No records';
+  }
+}
+
+function admRenderChart() {
+  var ctx = document.getElementById('hourly-chart').getContext('2d');
+  if (hourlyChartInst) hourlyChartInst.destroy();
+  var buckets = Array(11).fill(0);
+  admFiltered.forEach(function(r) {
+    if (r.timestamp) {
+      var h = new Date(r.timestamp).getHours();
+      buckets[Math.max(0, Math.min(10, h - 7))]++;
+    }
+  });
+  hourlyChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: Array.from({ length: 11 }, function(_, i) { return (7 + i) + ':00'; }),
+      datasets: [{ label: 'PDIOs', data: buckets, backgroundColor: '#D11F2F', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45, autoSkip: false }, grid: { display: false } },
+        y: { ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.06)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function admRenderTable() {
+  var q    = (document.getElementById('adm-search').value || '').toLowerCase();
+  var rows = admFiltered.filter(function(r) { return !q || (r.pdioNumber || '').toLowerCase().includes(q); });
+  var start = admPage * ADM_PAGE;
+  var page  = rows.slice(start, start + ADM_PAGE);
+  var tbody = document.getElementById('adm-tbody');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:28px; text-align:center; color:#B4B2A9;">No records found</td></tr>';
+    document.getElementById('adm-pager-info').textContent = 'No records';
+    document.getElementById('adm-prev').disabled = true;
+    document.getElementById('adm-next').disabled = true;
+    return;
+  }
+
+  tbody.innerHTML = page.map(function(r, i) {
+    var dt      = r.timestamp ? new Date(r.timestamp) : null;
+    var dateStr = dt ? dt.toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    var timeStr = dt ? dt.toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' }) : '—';
+    return '<tr>' +
+      '<td class="td-mono">' + (r.pdioNumber || '—') + '</td>' +
+      '<td class="td-muted">' + dateStr + ', ' + timeStr + '</td>' +
+      '<td><button class="view-btn" onclick="admShowDetail(' + (start + i) + ')">View</button></td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('adm-pager-info').textContent =
+    'Showing ' + (start + 1) + '–' + Math.min(start + ADM_PAGE, rows.length) + ' of ' + rows.length;
+  document.getElementById('adm-prev').disabled = admPage === 0;
+  document.getElementById('adm-next').disabled = start + ADM_PAGE >= rows.length;
+}
+
+function admChangePage(dir) { admPage += dir; admRenderTable(); }
+
+function admShowDetail(idx) {
+  var q    = (document.getElementById('adm-search').value || '').toLowerCase();
+  var rows = admFiltered.filter(function(r) { return !q || (r.pdioNumber || '').toLowerCase().includes(q); });
+  var r    = rows[idx];
+  if (!r) return;
+  document.getElementById('md-pdio').textContent    = r.pdioNumber || '—';
+  document.getElementById('md-type').textContent    = r.orderType  || '—';
+  document.getElementById('md-qty').textContent     = r.pdioQty    || '—';
+  document.getElementById('md-checker').textContent = r.checkedBy  || '—';
+  document.getElementById('md-dt').textContent      = r.datetime   || '—';
+  var el = document.getElementById('md-items');
+  el.innerHTML = r.items && r.items.length
+    ? r.items.map(function(it) {
+        return '<div class="mi-row">' +
+          '<span class="mi-name">' + it.name + '</span>' +
+          '<div class="mi-right">' +
+            '<span class="badge ' + (it.status === 'OK' ? 'badge-ok' : 'badge-nok') + '">' + it.status + '</span>' +
+            (it.remark ? '<div class="mi-remark">' + it.remark + '</div>' : '') +
+          '</div></div>';
+      }).join('')
+    : '<p style="font-size:13px; color:#B4B2A9;">No item detail</p>';
+  document.getElementById('adm-detail').style.display = 'block';
+  document.getElementById('adm-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function admCloseDetail() { document.getElementById('adm-detail').style.display = 'none'; }
+
+function admExportCsv() {
+  if (admFiltered.length === 0) { toast('No records to export'); return; }
+  var headers = ['PDIO Number','Date & Time','Order Type','PDIO Qty','Checked By'];
+  var rows    = admFiltered.map(function(r) { return [r.pdioNumber, r.datetime, r.orderType, r.pdioQty, r.checkedBy]; });
+  var csv     = [headers].concat(rows).map(function(r) { return r.map(function(v) { return '"' + (v || '') + '"'; }).join(','); }).join('\n');
+  var url     = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'pdio-' + (document.getElementById('adm-date').value || 'all') + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV downloaded');
+}
+</script>
+</body>
+</html>
